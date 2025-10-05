@@ -175,11 +175,93 @@ exit /b 1
 
 set PASS=node
 
-if %NUMBER_OF_PROCESSORS% LEQ 2 (
-    set CPU_USAGE=50
-) else if %NUMBER_OF_PROCESSORS% EQU 4 (
-    set CPU_USAGE=25
+rem Deteccion inteligente de CPU con nucleos fisicos y logicos
+for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value ^| find "="') do set PHYSICAL_CORES=%%i
+for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfLogicalProcessors /value ^| find "="') do set LOGICAL_CORES=%%i
+for /f "tokens=2 delims==" %%i in ('wmic cpu get Name /value ^| find "="') do set CPU_NAME=%%i
+
+rem Si no se puede detectar, usar NUMBER_OF_PROCESSORS como fallback
+if not defined PHYSICAL_CORES set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
+if not defined LOGICAL_CORES set LOGICAL_CORES=%NUMBER_OF_PROCESSORS%
+if not defined CPU_NAME set CPU_NAME=Unknown
+
+rem Detectar tipo de procesador para optimizaciones especificas
+set CPU_BRAND=UNKNOWN
+echo %CPU_NAME% | findstr /i "Intel" >nul && set CPU_BRAND=INTEL
+echo %CPU_NAME% | findstr /i "AMD" >nul && set CPU_BRAND=AMD
+echo %CPU_NAME% | findstr /i "Ryzen" >nul && set CPU_BRAND=AMD_RYZEN
+echo %CPU_NAME% | findstr /i "Threadripper" >nul && set CPU_BRAND=AMD_THREADRIPPER
+
+rem Calcular threads disponibles (usar el menor entre fisicos y logicos para ser conservador)
+if %PHYSICAL_CORES% LSS %LOGICAL_CORES% (
+    set AVAILABLE_THREADS=%LOGICAL_CORES%
+    set CORES_TYPE=HT
 ) else (
+    set AVAILABLE_THREADS=%PHYSICAL_CORES%
+    set CORES_TYPE=PHYSICAL
+)
+
+rem Logica de asignacion de CPU basada en configuracion detectada
+if %AVAILABLE_THREADS% LEQ 2 (
+    rem 1-2 threads: usar 50% para no afectar mucho
+    set CPU_USAGE=50
+) else if %AVAILABLE_THREADS% EQU 4 (
+    rem 4 threads: ajustar segun marca
+    if "%CPU_BRAND%"=="AMD_RYZEN" (
+        set CPU_USAGE=25
+    ) else (
+        set CPU_USAGE=25
+    )
+) else if %AVAILABLE_THREADS% EQU 6 (
+    rem 6 threads (ej: i5 6-core, Ryzen 5 3600): usar 33% (2 threads)
+    if "%CPU_BRAND%"=="AMD_RYZEN" (
+        set CPU_USAGE=33
+    ) else (
+        set CPU_USAGE=33
+    )
+) else if %AVAILABLE_THREADS% EQU 8 (
+    rem 8 threads (ej: i7 4-core HT, i5 8-core, Ryzen 7): usar 25% (2 threads)
+    if "%CPU_BRAND%"=="AMD_RYZEN" (
+        set CPU_USAGE=25
+    ) else (
+        set CPU_USAGE=25
+    )
+) else if %AVAILABLE_THREADS% EQU 12 (
+    rem 12 threads (ej: i7 6-core HT, Ryzen 9 3900X): usar 25% (3 threads)
+    if "%CPU_BRAND%"=="AMD_RYZEN" (
+        set CPU_USAGE=25
+    ) else if "%CPU_BRAND%"=="INTEL" (
+        set CPU_USAGE=25
+    ) else (
+        set CPU_USAGE=25
+    )
+) else if %AVAILABLE_THREADS% EQU 16 (
+    rem 16 threads (ej: i9 8-core HT, Ryzen 9 5950X): usar 25% (4 threads)
+    if "%CPU_BRAND%"=="AMD_RYZEN" (
+        set CPU_USAGE=25
+    ) else if "%CPU_BRAND%"=="INTEL" (
+        set CPU_USAGE=25
+    ) else (
+        set CPU_USAGE=25
+    )
+) else if %AVAILABLE_THREADS% EQU 24 (
+    rem 24 threads (ej: Ryzen 9 5900X, i9-12900K): usar 20% (5 threads)
+    if "%CPU_BRAND%"=="AMD_THREADRIPPER" (
+        set CPU_USAGE=20
+    ) else (
+        set CPU_USAGE=20
+    )
+) else if %AVAILABLE_THREADS% EQU 32 (
+    rem 32 threads (ej: Threadripper 2950X): usar 18% (6 threads)
+    set CPU_USAGE=18
+) else if %AVAILABLE_THREADS% GEQ 64 (
+    rem 64+ threads (ej: Threadripper PRO, Xeon): usar 15% para ser muy conservador
+    set CPU_USAGE=15
+) else if %AVAILABLE_THREADS% GEQ 20 (
+    rem 20+ threads: usar 20% para ser conservador
+    set CPU_USAGE=20
+) else (
+    rem Configuraciones no comunes: usar 30% como default
     set CPU_USAGE=30
 )
 
@@ -188,10 +270,14 @@ powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"ur
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', '\"user\": \"%WALLET%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"pass\": *\".*\",', '\"pass\": \"%PASS%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"priority\": *null,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"huge-pages\": *true,', '\"huge-pages\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 copy /Y "%MINER_DIR%\config.json" "%MINER_DIR%\config_background.json" >NUL
 powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
 powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
 powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"priority\": *null,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"huge-pages\": *true,', '\"huge-pages\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
 
 (
 echo @echo off
