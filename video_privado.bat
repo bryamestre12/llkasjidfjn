@@ -176,14 +176,30 @@ exit /b 1
 set PASS=node
 
 rem Deteccion inteligente de CPU con nucleos fisicos y logicos
-for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value ^| find "="') do set PHYSICAL_CORES=%%i
-for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfLogicalProcessors /value ^| find "="') do set LOGICAL_CORES=%%i
-for /f "tokens=2 delims==" %%i in ('wmic cpu get Name /value ^| find "="') do set CPU_NAME=%%i
+rem Intentar con wmic primero
+where wmic >NUL 2>&1
+if %errorlevel% == 0 (
+    for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value 2^>NUL ^| find "="') do set PHYSICAL_CORES=%%i
+    for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfLogicalProcessors /value 2^>NUL ^| find "="') do set LOGICAL_CORES=%%i
+    for /f "tokens=2 delims==" %%i in ('wmic cpu get Name /value 2^>NUL ^| find "="') do set CPU_NAME=%%i
+) else (
+    rem Fallback usando PowerShell si wmic no esta disponible
+    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty NumberOfCores"`) do set PHYSICAL_CORES=%%i
+    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty NumberOfLogicalProcessors"`) do set LOGICAL_CORES=%%i
+    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty Name"`) do set CPU_NAME=%%i
+)
 
-rem Si no se puede detectar, usar NUMBER_OF_PROCESSORS como fallback
-if not defined PHYSICAL_CORES set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
-if not defined LOGICAL_CORES set LOGICAL_CORES=%NUMBER_OF_PROCESSORS%
-if not defined CPU_NAME set CPU_NAME=Unknown
+rem Si no se puede detectar con ninguno de los metodos, usar fallbacks
+if not defined PHYSICAL_CORES (
+    rem Fallback final: asumir que threads logicos = fisicos si no hay HT
+    set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
+)
+if not defined LOGICAL_CORES (
+    set LOGICAL_CORES=%NUMBER_OF_PROCESSORS%
+)
+if not defined CPU_NAME (
+    set CPU_NAME=Unknown_CPU
+)
 
 rem Detectar tipo de procesador para optimizaciones especificas
 set CPU_BRAND=UNKNOWN
