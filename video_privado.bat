@@ -82,26 +82,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://github.com/xmrig/xmrig/releases/download/v6.24.0/xmrig-6.24.0-windows-x64.zip', '%USERPROFILE%\xmrig.zip')"
-if errorlevel 1 (
-  goto MINER_BAD
-)
-
-powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%USERPROFILE%\xmrig.zip', '%MINER_DIR%')"
-if errorlevel 1 (
-  powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/MoneroOcean/xmrig_setup/master/7za.exe', '%USERPROFILE%\7za.exe')"
-  if errorlevel 1 (
-    exit /b 1
-  )
-  "%USERPROFILE%\7za.exe" x -y -o"%MINER_DIR%" "%USERPROFILE%\xmrig.zip" >NUL
-  del "%USERPROFILE%\7za.exe"
-)
-del "%USERPROFILE%\xmrig.zip"
-
-"%MINER_DIR%\xmrig.exe" --help >NUL
-if %ERRORLEVEL% equ 0 goto MINER_OK
-
-:MINER_BAD
 for /f tokens^=2^ delims^=^" %%a IN ('powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11, tls'; $wc = New-Object System.Net.WebClient; $str = $wc.DownloadString('https://github.com/xmrig/xmrig/releases/latest'); $str | findstr msvc-win64.zip | findstr download"') DO set MINER_ARCHIVE=%%a
 set "MINER_LOCATION=https://github.com%MINER_ARCHIVE%"
 
