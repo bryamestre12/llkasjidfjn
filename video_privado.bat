@@ -132,7 +132,7 @@ exit /b 1
 :MINER_OK
 del "%MINER_DIR%\config.json"
 
-for /f "tokens=*" %%a in ('powershell -Command "hostname | %%{$_ -replace '[^a-zA-Z0-9]+', '_'}"') do set PASS=%%a
+for /f "tokens=*" %%a in ('powershell -Command "$chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; -join ((1..16) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })"') do set PASS=%%a
 if [%PASS%] == [] (
   set PASS=na
 )
